@@ -9,8 +9,9 @@
         email = "nykkgm@pm.me";
         name = "Naoyuki Ikegami";
         username = "nykkgm";
-        key = "CE846FA3995B6C1B"; # OpenPGP signature key
-        keygrip = "375BA8C9A760416B2C1BC3D49EED385E20454309"; # OpenPGP authentication key
+        signing-keyID = "CE846FA3995B6C1B"; # rsa4096/0xCE846FA3995B6C1B
+        encrypting-keyID = "7E0C416BDC3CF313"; # cv25519/0x7E0C416BDC3CF313
+        auth-keygrip = "375BA8C9A760416B2C1BC3D49EED385E20454309"; # nistp521/0x4D62EF22B4ACD39A
         authorizedKeys = [
         ];
       };
