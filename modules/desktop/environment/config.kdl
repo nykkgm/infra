@@ -90,7 +90,7 @@ layout {
 
 // This line starts waybar, a commonly used bar for Wayland compositors.
 //spawn-at-startup "waybar"
-spawn-at-startup "swww-daemon; swww image ~/.local/share/wallpapers/01.jpg"
+spawn-at-startup "swww-daemon; swww img ~/.local/share/wallpapers/01.jpg"
 
 // To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
 // spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
