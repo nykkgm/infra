@@ -1,27 +1,11 @@
-#+TITLE: Configurations for GNU Emacs
-#+AUTHOR: Naoyuki Ikegami
-#+EMAIL: nykkgm@pm.me
-#+STARTUP: content
-#+STARTUP: fold
+;; init.el -*- lexical-binding: t -*-
 
-* Header
-#+begin_src emacs-lisp :tangle "init.el"
-  ;; init.el -*- lexical-binding: t -*-
-#+end_src
-* Booting
-** Setup user information
-#+begin_src emacs-lisp :tangle "init.el"
-  (setq user-full-name "nykkgm")
-  (setq user-mail-address "nykkgm@pm.me")
-#+end_src
-** Temporally disable magic file name
-#+begin_src emacs-lisp :tangle yes
-  (defconst my/saved-file-name-handler-alist file-name-handler-alist)
-  (setq file-name-handler-alist nil)
- #+end_src
-** Setup package manager
-*** Install Elpaca 
-#+begin_src emacs-lisp :tangle yes
+(setq user-full-name "nykkgm")
+(setq user-mail-address "nykkgm@pm.me")
+
+(defconst my/saved-file-name-handler-alist file-name-handler-alist)
+(setq file-name-handler-alist nil)
+
 (defvar elpaca-installer-version 0.11)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
@@ -60,111 +44,88 @@
     (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
-#+end_src
-*** Install SetupEl
-#+begin_src emacs-lisp :tangle yes
-  (elpaca setup
-    (require 'setup))
-  (elpaca-wait)
 
-  ;; wrapping function to work with Elpaca
-  (defun setup-wrap-to-install-package (body _name)
-    "Wrap BODY in an `elpaca' block if necessary.
-  The body is wrapped in an `elpaca' block if `setup-attributes'
-  contains an alist with the key `elpaca'."
-    (if (assq 'elpaca setup-attributes)
-        `(elpaca ,(cdr (assq 'elpaca setup-attributes)) ,@(macroexp-unprogn body))
+(elpaca setup
+  (require 'setup))
+(elpaca-wait)
+
+;; wrapping function to work with Elpaca
+(defun setup-wrap-to-install-package (body _name)
+  "Wrap BODY in an `elpaca' block if necessary.
+The body is wrapped in an `elpaca' block if `setup-attributes'
+contains an alist with the key `elpaca'."
+  (if (assq 'elpaca setup-attributes)
+      `(elpaca ,(cdr (assq 'elpaca setup-attributes)) ,@(macroexp-unprogn body))
+    body))
+
+;; Add the wrapper function
+(add-to-list 'setup-modifier-list #'setup-wrap-to-install-package)
+(setup-define :elpaca
+  (lambda (order &rest recipe)
+    (push (cond
+	   ((eq order t) `(elpaca . ,(setup-get 'feature)))
+	   ((eq order nil) '(elpaca . nil))
+	   (`(elpaca . (,order ,@recipe))))
+	  setup-attributes)
+    ;; If the macro wouldn't return nil, it would try to insert the result of
+    ;; `push' which is the new value of the modified list. As this value usually
+    ;; cannot be evaluated, it is better to return nil which the byte compiler
+    ;; would optimize away anyway.
+    nil)
+  :documentation "Install ORDER with `elpaca'.
+The ORDER can be used to deduce the feature context."
+  :shorthand #'cadr)
+
+;; define :opt to handle custom variables safe
+(setup-define :opt
+  (lambda (&rest pairs)
+    `(setopt ,@pairs))
+  :after-loaded t)
+
+;; define :load-after to handle dependency
+(setup-define :load-after
+  (lambda (&rest features)
+    (let ((body `(require ',(setup-get 'feature))))
+      (dolist (feature (nreverse features))
+        (setq body `(with-eval-after-load ',feature ,body)))
       body))
+  :documentation "Load the current feature after FEATURES.")
 
-  ;; Add the wrapper function
-  (add-to-list 'setup-modifier-list #'setup-wrap-to-install-package)
-  (setup-define :elpaca
-    (lambda (order &rest recipe)
-      (push (cond
-  	   ((eq order t) `(elpaca . ,(setup-get 'feature)))
-  	   ((eq order nil) '(elpaca . nil))
-  	   (`(elpaca . (,order ,@recipe))))
-  	  setup-attributes)
-      ;; If the macro wouldn't return nil, it would try to insert the result of
-      ;; `push' which is the new value of the modified list. As this value usually
-      ;; cannot be evaluated, it is better to return nil which the byte compiler
-      ;; would optimize away anyway.
-      nil)
-    :documentation "Install ORDER with `elpaca'.
-  The ORDER can be used to deduce the feature context."
-    :shorthand #'cadr)
-
-  ;; define :opt to handle custom variables safe
-  (setup-define :opt
-    (lambda (&rest pairs)
-      `(setopt ,@pairs))
-    :after-loaded t)
-
-  ;; define :load-after to handle dependency
-  (setup-define :load-after
-    (lambda (&rest features)
-      (let ((body `(require ',(setup-get 'feature))))
-        (dolist (feature (nreverse features))
-          (setq body `(with-eval-after-load ',feature ,body)))
-        body))
-    :documentation "Load the current feature after FEATURES.")
-#+end_src
-
-** Do not show some confusing warnings when installing packages
-#+begin_src emacs-lisp :tangle yes
-  (add-to-list 'display-buffer-alist
+(add-to-list 'display-buffer-alist
 	       '("\\`\\*\\(Warnings\\|Compile-Log\\)\\*\\'"
 		 (display-buffer-no-window)
 		 (allow-no-window . t)))
-#+end_src
-** Native compilation settings
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'comp-run
-    ;; config
-    (setopt native-comp-async-jobs-number 16)
-    (setopt native-comp-speed 3)
-    (setopt native-comp-always-compile t))
 
-  (with-eval-after-load 'warnings
-    ;; config
-    (setopt warning-suppress-types '((comp))))
-#+end_src
-* Basics
-** Show line numbers in programming mode
-#+begin_src emacs-lisp :tangle yes
-  (add-hook 'prog-mode-hook #'display-line-numbers-mode)
-  (with-eval-after-load 'display-line-numbers
-    (setopt display-line-numbers-grow-only t))
-#+end_src
-** C-k deletes whole line
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'simple
-    (setopt kill-whole-line t))
-#+end_src
-** Highlight pair parenthesis in programming mode
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'prog-mode
-    (add-hook 'prog-mode-hook #'show-paren-local-mode))
+(with-eval-after-load 'comp-run
+  ;; config
+  (setopt native-comp-async-jobs-number 16)
+  (setopt native-comp-speed 3)
+  (setopt native-comp-always-compile t))
 
-  (with-eval-after-load 'paren
-    (setopt show-paren-style 'mixed))
-#+end_src
-** Add parenthesis pair automatically
-Now using puni.el, instead of electric-pair-mode
-#+begin_src emacs-lisp :tangle yes
+(with-eval-after-load 'warnings
+  ;; config
+  (setopt warning-suppress-types '((comp))))
+
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+(with-eval-after-load 'display-line-numbers
+  (setopt display-line-numbers-grow-only t))
+
+(with-eval-after-load 'simple
+  (setopt kill-whole-line t))
+
+(with-eval-after-load 'prog-mode
+  (add-hook 'prog-mode-hook #'show-paren-local-mode))
+
+(with-eval-after-load 'paren
+  (setopt show-paren-style 'mixed))
+
 ;(add-hook 'emacs-startup-hook #'electric-pair-mode)
-#+end_src
-** Revert a file when it was changed externally
-#+begin_src emacs-lisp :tangle yes
+
 (add-hook 'emacs-startup-hook #'global-auto-revert-mode)
-#+end_src
-** Delete the selected region upon text insersion
-#+begin_src emacs-lisp :tangle yes
+
 (with-eval-after-load 'delsel
   (delete-selection-mode t))
-#+end_src
-** Make C-g a bit more helpful
-#+begin_src emacs-lisp :tangle yes
+
 (defun prot/keyboard-quit-dwim ()
   "Do-What-I-Mean behaviour for a general `keyboard-quit'.
 
@@ -190,80 +151,54 @@ Now using puni.el, instead of electric-pair-mode
       (keyboard-quit))))
 
   (define-key global-map (kbd "C-g") #'prot/keyboard-quit-dwim)
-#+end_src
-** Enable savehist
-#+begin_src emacs-lisp :tangle yes
+
 (with-eval-after-load 'savehist
   (savehist-mode t))
-#+end_src
-** Distiguish same name buffers
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'uniquify
-    (setopt uniquify-buffer-name-style 'post-forward-angle-brackets))
-#+end_src
-** Time format
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'time
-    (setopt display-time-24hr-format t))
-#+end_src
-** Warn only errors
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'warnings
-    (setopt warning-minimum-level :error))
-#+end_src
-** Show entered keys while typing a command
-#+begin_src emacs-lisp :tangle yes
-  (setopt echo-keystrokes 0.1)
-#+end_src
-** Recover the cursor position
-#+begin_src emacs-lisp :tangle yes
+
+(with-eval-after-load 'uniquify
+  (setopt uniquify-buffer-name-style 'post-forward-angle-brackets))
+
+(with-eval-after-load 'time
+  (setopt display-time-24hr-format t))
+
+(with-eval-after-load 'warnings
+  (setopt warning-minimum-level :error))
+
+(setopt echo-keystrokes 0.1)
+
 (with-eval-after-load 'saveplace
   (save-place-mode t))
-#+end_src
-** Enable file local variables
-#+begin_src emacs-lisp :tangle yes
+
 (with-eval-after-load 'files
   (setopt enable-local-variables :all))
-#+end_src
-** Ignore case in completion
-#+begin_src emacs-lisp :tangle yes
-  (with-eval-after-load 'minibuffer
-    (setopt read-file-name-completion-ignore-case t))
 
-  (setq completion-ignore-case t)
-  (setq read-buffer-completion-ignore-case t)
-#+end_src
-** Set time locale to "C" to align correct
-#+begin_src emacs-lisp :tangle yes
-  (setq system-time-locale "C")
-#+end_src
-** Enlarge kill-ring
-#+begin_src emacs-lisp :tangle yes
+(with-eval-after-load 'minibuffer
+  (setopt read-file-name-completion-ignore-case t))
+
+(setq completion-ignore-case t)
+(setq read-buffer-completion-ignore-case t)
+
+(setq system-time-locale "C")
+
 (setopt kill-ring-max 100000)
 (setopt savehist-additional-variables '(kill-ring))
-#+end_src
-** Truncate long lines
-#+begin_src emacs-lisp :tangle yes
-  (setopt truncate-lines t)
-  (setopt truncate-partial-width-windows t)
-#+end_src
-* Key Bindings
-** Show candidates of key bindings
-#+begin_src emacs-lisp :tangle yes
+
+(setopt truncate-lines t)
+(setopt truncate-partial-width-windows t)
+
+(setup server
+  (:when-loaded
+    (unless (server-running-p)
+      (server-start))))
+
 (setup which-key
   (:elpaca t)
   (:with-hook elpaca-after-init-hook
     (:hook which-key-mode)))
-#+end_src
-* UI
-** Transient
-#+begin_src emacs-lisp :tangle yes
+
 (setup transient
   (:elpaca t))
-#+end_src
-* Editing
-** Meow
-#+begin_src emacs-lisp :tangle yes
+
 (setup meow
   (:elpaca t)
   (:require meow)
@@ -282,118 +217,64 @@ Now using puni.el, instead of electric-pair-mode
   (defun meow-setup ()
     (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
     
-    ;; MOTION state
-    ;; the default state for special modes like dired, proced and so on.
+    ;; MOTION state: in mini-buffer when using treemacs, magit
     (meow-motion-overwrite-define-key
      '("j" . meow-next)
-     '("k" . meow-prev)
-     '("/" . consult-line))
+     '("k" . meow-prev))
 
-    ;; KEYPAD state
-    ;; keybindings after the leader key (= SPC)
-    (meow-leader-define-key
-     ;; run original command in motion state
-     '("j" . "h-j")
-     '("k" . "h-k")
-     '("/" . "h-/")
-     ;; for digit arguments
-     '("1" . meow-digit-argument)
-     '("2" . meow-digit-argument)
-     '("3" . meow-digit-argument)
-     '("4" . meow-digit-argument)
-     '("5" . meow-digit-argument)
-     '("6" . meow-digit-argument)
-     '("7" . meow-digit-argument)
-     '("8" . meow-digit-argument)
-     '("9" . meow-digit-argument)
-     '("0" . meow-digit-argument)
-     ;; help
-     '("/" . meow-keypad-describe-key)
-     '("?" . meow-cheatsheet))
-
+    ;; INSERT state
+    (meow-define-keys 'insert
+      '("C-a" . meow-back-to-indentation)
+      '("C-u" . scroll-down)
+      '("C-d" . scroll-up)
+      '("s-a" . mark-whole-buffer)
+      '("s-c" . meow-save)
+      '("s-f" . consult-line)
+      '("s-s" . save-buffer)
+      '("s-x" . meow-kill)
+      '("s-v" . meow-yank)
+      '("s-z" . vundo)
+      '("<backspace>" . puni-backward-delete-char))
+    
     ;; NORMAL state
-    ;; the default state for text editing
     (meow-normal-define-key
-     ;; common movements
-     ;;  go to a position hint after each movement
-     '("0" . meow-expand-0)
-     '("9" . meow-expand-9)
-     '("8" . meow-expand-8)
-     '("7" . meow-expand-7)
-     '("6" . meow-expand-6)
-     '("5" . meow-expand-5)
-     '("4" . meow-expand-4)
-     '("3" . meow-expand-3)
-     '("2" . meow-expand-2)
-     '("1" . meow-expand-1)
-     ;;  movements can be done with negative argument
-     '("-" . negative-argument)    
-     
-     ;; manipulate selection area
-     '(";" . meow-reverse)		    ; reverse
-     '("<escape>" . meow-cancel-selection)  ; cancel
-     ;;  thing-based
-     '("v i" . meow-inner-of-thing)	    ; inner part of thing
-     '("v a" . meow-bounds-of-thing)	    ; whole thing
-     ;;  
-     '("v b" . meow-block)		    ; matched parens area
-     '("v c" . puni-mark-list-around-point) ; contents
-     '("v x" . puni-mark-sexp-around-point) ; expression
-     '("v l" . meow-line)		    ; line
-     '("v s" . meow-mark-symbol)	    ; symbol
-     '("v w" . meow-mark-word)		    ; word
-     '("v v" . puni-expand-region)	    ; expand current region
-     '("v r" . rectangle-mark-mode)	    ; rectangle
-     
-     '("a" . meow-append)		; switch to INSERT state at the end
-     '("b" . consult-buffer)
-     '("B" . meow-back-symbol)		; backward to the symbol beginning
-     '("d" . meow-kill)			; kill current region
-     '("D" . meow-kill-whole-line)	; kill whole line include LF
-     '("e" . meow-next-word)		; forward to the word end
-     '("E" . meow-next-symbol)		; forward to the symbol end
-     '("f" . find-file) 
 
-     '("G" . meow-grab)			; push current selection
-     '("h" . meow-left)			; move cursor left 
-     '("H" . meow-beginning-of-thing)	; select to the begging of thing
-     '("i" . meow-insert)		; switch to INSERT state at the beggining
-     '("I" . meow-open-above)		; insert a new line above
-     '("j" . meow-next)			; move cursor down
-     '("J" . meow-page-down)		; move cursor one page down
-     '("k" . meow-prev)			; move cursor up
-     '("K" . meow-page-up)		; move cursor one page up
-     '("l" . meow-right)		; move cursor right
-     '("L" . meow-end-of-thing)		; select to the end of thing
-     '("m" . meow-join)			; select between prev line end to this line beginning
-     '("n" . meow-search)		; search with the regexp-search-ring
-     '("o" . meow-open-below)		; insert a new line below
-     '("O" . meow-open-above)		; insert a new line above
-     '("p" . meow-yank)			; paste
+     ;; Ctrl key
+     ;; meow- 移動系関数は C- を使ったマクロとして実装されているので
+     ;; C- を変更すると影響が出るので問題ないことを確認する。
+     '("C-a" . meow-back-to-indentation)
+     '("C-u" . scroll-down) ; Emacs down は Vim up。
+     '("C-d" . scroll-up)
 
-     '("Q" . meow-goto-line)		; goto line
-     '("r" . meow-replace)		; replace current region with current kill
-     '("R" . meow-swap-grab)		; swap pushed contents with current region
-     '("s" . meow-change)		; delete region, switch INSERT and select inserted after exit
-     '("t" . meow-till)			; select until next to a specified char 
-     '("u" . meow-undo)			; undo
-     '("U" . meow-undo-in-selection)	; undo in current selection
+     ;; SUPER key
+     ;; terminal では使えないので GUI Emacs 専用だと思った方が良い。
+     '("s-a" . mark-whole-buffer)
+     '("s-c" . meow-save)
+     '("s-f" . consult-line)
+     '("s-s" . save-buffer)
+     ;; '("s-q" . save-buffers-kill-emacs)
+     '("s-x" . meow-kill)
+     '("s-v" . meow-yank)
+     '("s-z" . vundo)
 
-     '("x" . puni-forward-delete-char)
-     '("y" . meow-save) 		; copy
-     '("Y" . meow-sync-grab)		; sync the 2nd selection to current region
-     '("z" . meow-pop-selection)	; pop one selection
-     '("'" . repeat)
-     '("/" . meow-visit)		; search and select
+     ;; GUI ならクローズボタンがあるので、クライアント終了コマンドは terminal のために用意している。
+     '(": q" . save-buffers-kill-emacs) ;; Emacs プロセスを終了する。
+     '(": shift+q" . save-buffers-kill-terminal) ;; emacsclient の接続を終了する。
+     '(": w" . save-buffer)
 
-     '("<backspace>" . puni-backward-delete-char)
-     '("<escape>" . meow-cancel-selection)
+     ;; argument
+     '(", u" . meow-universal-argument) ; 引数を与える。 , u 10 => M-x meow-next で10行移動のように使う。
 
-     ;; other commands
+     ;; basic
      '(", c" . comment-line)
-     '(", e e" . "C-x C-e") ;; eval-last-sepx
+     '(", e e" . "C-x C-e") ;; eval-last-sexp
      '(", e m" . pp-macroexpand-last-sexp)
+     '(", f" . consult-fd)
+     '(", g" . consult-ripgrep)
      '(", x" . execute-extended-command)
+
+     ;; debug
+     '(", d f" . consult-flycheck)
 
      ;; puni
      '(", a (" . puni-wrap-round)
@@ -410,45 +291,92 @@ Now using puni.el, instead of electric-pair-mode
      ;; window
      '(", w d" . delete-window)
      '(", w s" . split-window-vertically)
-     '(", w v" . split-window-horizontally))
+     '(", w v" . split-window-horizontally)
 
-    ;; INSERT state
-    (meow-define-keys 'insert
-      '("C-a" . meow-back-to-indentation)
-      '("C-u" . scroll-down)
-      '("C-d" . scroll-up)
-      '("s-a" . mark-whole-buffer)
-      '("s-c" . meow-save)
-      '("s-f" . consult-line)
-      '("s-s" . save-buffer)
-      '("s-x" . meow-kill)
-      '("s-v" . meow-yank)
-      '("s-z" . undo)
-      '("<backspace>" . puni-backward-delete-char)))
+     ;; base layout
+     '("0" . meow-expand-0)
+     '("9" . meow-expand-9)
+     '("8" . meow-expand-8)
+     '("7" . meow-expand-7)
+     '("6" . meow-expand-6)
+     '("5" . meow-expand-5)
+     '("4" . meow-expand-4)
+     '("3" . meow-expand-3)
+     '("2" . meow-expand-2)
+     '("1" . meow-expand-1)
+     '("-" . negative-argument)
+     '(";" . meow-reverse)
+     '("[" . meow-beginning-of-thing)
+     '("]" . meow-end-of-thing)
+     '("a" . meow-append)
+     '("b" . consult-buffer)
+     '("B" . meow-back-symbol)
+     '("d" . meow-kill)
+     '("D" . meow-kill-whole-line)
+     '("e" . meow-next-word)
+     '("E" . meow-next-symbol)
+     '("f" . find-file) ;;
+
+     '("G" . meow-grab)
+     '("h" . meow-left)
+     '("H" . meow-beginning-of-thing)
+     '("i" . meow-insert)
+     '("I" . meow-open-above)
+     '("j" . meow-next)
+     '("J" . meow-page-down)
+     '("k" . meow-prev)
+     '("K" . meow-page-up)
+     '("l" . meow-right)
+     '("L" . meow-end-of-thing)
+     '("m" . meow-join)
+     '("n" . meow-search)
+     '("o" . meow-open-below)
+     '("O" . meow-open-above)
+     '("p" . meow-yank) ;; paste
+
+     '("Q" . meow-goto-line)
+     '("r" . meow-replace)
+     '("R" . meow-swap-grab)
+     '("s" . meow-change) ;; sustitute
+     '("t" . meow-till)
+     '("u" . vundo) ;; undo
+     '("U" . meow-undo-in-selection)
+
+     '("v i" . meow-inner-of-thing) ;; Inner
+     '("v a" . meow-bounds-of-thing) ;; Arround
+     '("v b" . meow-block) ;; Block
+     '("v c" . puni-mark-list-around-point) ;; Contents
+     '("v x" . puni-mark-sexp-around-point) ;; eXpression
+     '("v l" . meow-line) ;; Line
+     '("v s" . meow-mark-symbol) ;; Symbol
+     '("v w" . meow-mark-word) ;; Word
+     '("v v" . puni-expand-region) ;; Expand
+     '("v r" . rectangle-mark-mode) ;; Rectangle
+
+     '("x" . puni-forward-delete-char)
+     '("y" . meow-save) ;;
+     '("Y" . meow-sync-grab)
+     '("z" . meow-pop-selection)
+     '("'" . repeat)
+     '("/" . meow-visit)
+
+     '("<backspace>" . puni-backward-delete-char)
+     '("<escape>" . meow-cancel-selection)))
   
   (meow-setup)
   (meow-global-mode 1))
-#+end_src
-** puni
-#+begin_src emacs-lisp :tangle yes
+
 (setup puni
   (:elpaca t)
   (:when-loaded
     (puni-global-mode)))
-#+end_src
-* IME
-** ddskk
-#+begin_src emacs-lisp :tangle yes
+
 ;(use-package ddskk
 ;  :ensure t
 ;  :bind ("C-x C-j" . skk-mode)
 ;  :config
 ;  (setq default-input-method "japanese-skk"))
-#+end_src
 
-* Appearances
-** Theme
-#+begin_src emacs-lisp :tangle yes
 (setup modus-themes
   (:elpaca t)
   (:require modus-themes)
@@ -472,10 +400,7 @@ Now using puni.el, instead of electric-pair-mode
 				(agenda-date . (variable-pitch regular 1.3))
 				(t . (regular 1.15)))
 	modus-themes-common-palette-overrides nil))
-#+end_src
-** Fonts
-*** Use icon fonts
-#+begin_src emacs-lisp :tangle yes
+
 (setup nerd-icons
   (:elpaca t))
 
@@ -494,9 +419,7 @@ Now using puni.el, instead of electric-pair-mode
   (:elpaca t)
   (:with-hook dired-mode-hook
     (:hook nerd-icons-dired-mode)))
-#+end_src
-*** Use Fontaine
-#+begin_src emacs-lisp :tangle yes
+
 ;; Fontaine (font configurations)
 ;; Read the manual: <https://protesilaos.com/emacs/fontaine>
 (setup fontaine
@@ -541,10 +464,7 @@ Now using puni.el, instead of electric-pair-mode
     
     (with-eval-after-load 'pulsar
       (add-hook 'fontaine-set-preset-hook #'pulsar-pulse-line))))
-#+end_src
-** Focusing
-*** Highlight current line for a while after switching
-#+begin_src emacs-lisp :tangle yes
+
 ;;;; Pulsar
 ;; Read the pulsar manual: <https://protesilaos.com/emacs/pulsar>.
 (setup pulsar
@@ -562,43 +482,30 @@ Now using puni.el, instead of electric-pair-mode
 	pulsar-highlight-face 'pulsar-magenta)
   (:when-loaded
     (pulsar-global-mode 1)))
-#+end_src
-** Mode line
-*** moody
-#+begin_src emacs-lisp :tangle yes
+
 (setup moody
   (:elpaca t)
   (:opt x-underline-at-descent-line t)
   (:when-loaded
     (moody-replace-mode-line-buffer-identification)
     (moody-replace-eldoc-minibuffer-message-function)))
-#+end_src
-*** minions
-#+begin_src emacs-lisp :tangle yes
-  (setup minions
-    (:elpaca t)
-    (:with-hook elpaca-after-init-hook
-      (:hook minions-mode))
-    (:opt minions-mode-line-lighter "[+]"))
-#+end_src
-*** mlscroll
-#+begin_src emacs-lisp :tangle yes
+
+(setup minions
+  (:elpaca t)
+  (:with-hook elpaca-after-init-hook
+    (:hook minions-mode))
+  (:opt minions-mode-line-lighter "[+]"))
+
 (setup mlscroll
   (:elpaca t)
   (:when-loaded
     (if (daemonp)
 	(add-hook 'server-after-make-frame-hook #'mlscroll-mode)
       (mlscroll-mode 1))))
-#+end_src
-** Window
-*** posframe
-#+begin_src emacs-lisp :tangle yes
+
 (setup posframe
   (:elpaca t))
-#+end_src
-* Search
-** marginalia
-#+begin_src emacs-lisp :tangle yes
+
 (setup marginalia
   (:elpaca t)
   (:with-hook elpaca-after-init-hook
@@ -606,9 +513,7 @@ Now using puni.el, instead of electric-pair-mode
   (:with-map minibuffer-local-map
     (:bind "M-A" marginalia-cycle))
   (:opt marginalia-align-offset 25))
-#+end_src
-** vertico
-#+begin_src emacs-lisp :tangle yes  
+
 (setup vertico
   (:elpaca t)
   (:with-hook elpaca-after-init-hook
@@ -632,9 +537,7 @@ Now using puni.el, instead of electric-pair-mode
             (if (= vertico--index index)
 		(concat " " arrow " " cand)
               (concat "    " cand))))))))
-#+end_src
-** orderless
-#+begin_src emacs-lisp :tangle yes
+
 (setup orderless
   (:elpaca t)
   (:opt completion-styles '(orderless initials flex basic)
@@ -644,11 +547,7 @@ Now using puni.el, instead of electric-pair-mode
    (add-to-list 'completion-styles-alist
 		'(orderless orderless-try-completion orderless-all-completions
 			    "Completion of multiple components, in any order."))))
-#+end_src
 
-* Completion
-** corfu
-#+begin_src emacs-lisp :tangle yes
 (setup corfu
   (:elpaca t)
   (:with-hook elpaca-after-init-hook
@@ -687,130 +586,89 @@ Now using puni.el, instead of electric-pair-mode
     (with-eval-after-load 'savehist
       (corfu-history-mode 1)
       (add-to-list 'savehist-additional-variables 'corfu-history))))
-#+end_src
-** consult
-#+begin_src emacs-lisp :tangle yes
-  (setup consult
-    (:elpaca t)
-    (:with-hook completion-list-mode-hook
-      (:hook consult-preview-at-point-mode))
-    (:opt xref-show-xrefs-function #'consult-xref
+
+(setup consult
+  (:elpaca t)
+  (:with-hook completion-list-mode-hook
+    (:hook consult-preview-at-point-mode))
+  (:opt xref-show-xrefs-function #'consult-xref
 	  xref-show-definitions-function #'consult-xref
 	  consult-line-start-from-top t)
 
-    ;; custumized consult-line
-    (defun c/consult-line (&optional at-point)
-  	"Consult-line uses things-at-point if set C-u prefix."
-  	(interactive "P")
-  	(if at-point
-  	    (consult-line (thing-at-point 'symbol))
-  	  (consult-line)))
+  ;; custumized consult-line
+  (defun c/consult-line (&optional at-point)
+	"Consult-line uses things-at-point if set C-u prefix."
+	(interactive "P")
+	(if at-point
+	    (consult-line (thing-at-point 'symbol))
+	  (consult-line)))
 
+  (:bind
+   ;; C-c bindings (mode-specific-map)
+   [remap switch-to-buffer] consult-buffer                 ; C-x b
+   [remap project-switch-to-buffer] consult-project-buffer ; C-x p b
+   
+   ;; M-g bindings (goto-map)
+   [remap goto-line] consult-goto-line    ; M-g g
+   [remap imenu] consult-imenu            ; M-g i
+   "M-g f" consult-flymake
+
+   ;; C-M-s bindings
+   "C-s"  c/consult-line       ; isearch-forward
+   "C-M-s"  nil                ; isearch-forward-regexp
+   "C-M-s s"  isearch-forward
+   "C-M-s C-s"  isearch-forward-regexp
+   "C-M-s r" consult-ripgrep)
+  (:with-map minibuffer-local-map
+    (:bind "C-r" consult-history)))
+
+(setup dired
+  ;(:elpaca t)
+  (:with-hook dired-mode-hook
+    (:hook dired-hide-details-mode)
+    (:hook hl-line-mode))
+  (:opt dired-recursive-copies 'always
+	dired-recursive-deletes 'always
+	delete-by-moving-to-trash t
+	dired-dwim-target t))
+
+(setup dired-subtree
+  (:elpaca t)
+  (:load-after dired)
+  (:with-map dired-mode-map
     (:bind
-     ;; C-c bindings (mode-specific-map)
-     [remap switch-to-buffer] consult-buffer                 ; C-x b
-     [remap project-switch-to-buffer] consult-project-buffer ; C-x p b
-     
-     ;; M-g bindings (goto-map)
-     [remap goto-line] consult-goto-line    ; M-g g
-     [remap imenu] consult-imenu            ; M-g i
-     "M-g f" consult-flymake
+     "<tab>" dired-subtree-toggle
+     "TAB" dired-subtree-toggle
+     "<backtab>" dired-subtree-remove
+     "S-TAB" dired-subtree-remove))
+  (:opt dired-subtree-use-backgrounds nil))
 
-     ;; C-M-s bindings
-     "C-s"  c/consult-line       ; isearch-forward
-     "C-M-s"  nil                ; isearch-forward-regexp
-     "C-M-s s"  isearch-forward
-     "C-M-s C-s"  isearch-forward-regexp
-     "C-M-s r" consult-ripgrep)
-    (:with-map minibuffer-local-map
-      (:bind "C-r" consult-history)))
-#+end_src
-
-* Dired funtionallity
-** dired
-#+begin_src emacs-lisp :tangle yes
-  (setup dired
-    ;(:elpaca t)
-    (:with-hook dired-mode-hook
-      (:hook dired-hide-details-mode)
-      (:hook hl-line-mode))
-    (:opt dired-recursive-copies 'always
-  	dired-recursive-deletes 'always
-  	delete-by-moving-to-trash t
-  	dired-dwim-target t))
-#+end_src
-** dired-subtree
-#+begin_src emacs-lisp :tangle yes
-  (setup dired-subtree
-    (:elpaca t)
-    (:load-after dired)
-    (:with-map dired-mode-map
-      (:bind
-       "<tab>" dired-subtree-toggle
-       "TAB" dired-subtree-toggle
-       "<backtab>" dired-subtree-remove
-       "S-TAB" dired-subtree-remove))
-    (:opt dired-subtree-use-backgrounds nil))
-#+end_src
-** peep-dired
-#+begin_src emacs-lisp :tangle yes
 (setup peep-dired
   (:elpaca t)
   (:with-map dired-mode-map
     (:bind "P" peep-dired))
   (:when-loaded
     (setq peep-dired-cleanup-on-disable t)))
-#+end_src
 
-* Snippet
-** yasnippet
-#+begin_src emacs-lisp :tangle yes
 (setup yasnippet
   (:elpaca t)
   (:with-hook elpaca-after-init-hook
     (:hook yas-global-mode)))
-#+end_src
 
-* Git
-** magit
-#+begin_src emacs-lisp :tangle yes
 (setup magit
   (:elpaca t))
-#+end_src
 
-* Coding
-** treesitter
-#+begin_src emacs-lisp :tangle yes
 (setup treesit
   ;(:elpaca t)
   (:opt treesit-font-lock-level 4))
-#+end_src
-** Languages
-*** Clojure
-**** cider
-#+begin_src emacs-lisp :tangle yes
+
 (setup cider
   (:elpaca t))
-#+end_src
-*** Nix
-**** nix-mode
-#+begin_src emacs-lisp :tangle yes
+
 (setup nix-mode
   (:elpaca t)
   (:match-file "\\.nix\\'"))
-#+end_src
 
-* Org mode
-My files:
-- tasks.org
-  something needs action
-- notes.org
-  something learned, maybe to be reviewed sometimes, maybe not categorized yet
-- projects.org
-  something continuous, maybe containing multiple subtasks
-** Basic setup
-*** org
-#+begin_src emacs-lisp :tangle yes
 (setup org
   (:elpaca t)
 
@@ -858,19 +716,15 @@ My files:
     (defun my/update-org-agenda-files ()
       (interactive)
       (setq org-agenda-files my/org-agenda-files))))
-#+end_src
-*** org-src
-#+begin_src emacs-lisp :tangle yes
-  (setup org-src
-    ;;(:elpaca t)
-    (:opt
-     org-edit-src-content-indentation 0
-     org-src-window-setup 'current-window
-     org-src-fontify-natively nil
-     org-src-tab-acts-natively nil))
-#+end_src
-*** org-capture
-#+begin_src emacs-lisp :tangle yes
+
+(setup org-src
+  ;;(:elpaca t)
+  (:opt
+   org-edit-src-content-indentation 0
+   org-src-window-setup 'current-window
+   org-src-fontify-natively nil
+   org-src-tab-acts-natively nil))
+
 (setup org-capture
 ;; (:elpaca t)
   (:bind "C-c c" org-capture)
@@ -881,27 +735,20 @@ My files:
 				 "* TODO %?\n %i")
 				("n" "Note" entry (file my/org-notes)
 				 "* %?\nEntered on %U\n %i")))))
-#+end_src
-*** org-popup-posframe
-#+begin_src emacs-lisp :tangle yes
+
 ;; (use-package org-popup-posframe
 ;;   :ensure t
 ;;   :after posframe
 ;;   :vc (:url "https://github.com/A7R7/org-popup-posframe.git" :rev :newest)
 ;;   :custom
 ;;   (org-popup-posframe-mode 1))
-#+end_src
-** Theme
-*** org-superstar
-#+begin_src emacs-lisp :tangle yes
+
 (setup org-superstar
   (:elpaca t)
   (:with-mode org-mode
     (:hook org-superstar-mode))
   (:opt oprg-superstar-leading-bullet " "))
-#+end_src
-** org-roam
-#+begin_src emacs-lisp :tangle yes
+
 (setup org-roam
   (:elpaca t)
   (:bind "C-c n f" org-roam-node-find     ; find and access, create if not exist
@@ -911,11 +758,7 @@ My files:
   (:when-loaded
     (setq org-roam-directory (concat org-directory "/roam"))
     (org-roam-db-autosync-mode)))
-#+end_src
 
-* Reading Documents
-** Read ePub
-#+begin_src emacs-lisp :tangle yes
 (setup nov
   ;; "Major mode for reading EPUBs in Emacs"
   (:elpaca t)
@@ -929,9 +772,7 @@ My files:
 ;;   :hook (nov-mode . nov-xwidget-inject-all-files)
 ;;   :bind ( :map nov-mode-map
 ;; 	  ("o" . nov-widget-view)))
-#+end_src
-** Read PDF
-#+begin_src emacs-lisp :tangle yes
+
 (setup pdf-tools
   (:elpaca t)
   (:when-loaded
@@ -940,10 +781,5 @@ My files:
     (:with-map pdf-view-mode-map
       (:bind "C-s" isearch-forward))
     (setq pdf-view-resize-factor 1.1)))
-#+end_src
 
-* Footer
-** Enable magic file name again
-#+begin_src emacs-lisp :tangle yes
-  (setq file-name-handler-alist my/saved-file-name-handler-alist)
-#+end_src
+(setq file-name-handler-alist my/saved-file-name-handler-alist)
