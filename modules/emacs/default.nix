@@ -22,7 +22,7 @@
           };
 
           packages = with pkgs; [
-            emacs-lsp-booster
+            #emacs-lsp-booster
             #pinentry-emacs
           ];
         };

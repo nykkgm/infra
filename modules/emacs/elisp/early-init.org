@@ -79,9 +79,3 @@
 #+begin_src emacs-lisp :tangle yes
   (setq byte-compile-warnings '(cl-functions))
 #+end_src
-** Disable package.el after it loads packages
-Instead of package.el, I use Elpaca.
-#+begin_src emacs-lisp :tangle yes
-(with-eval-after-load 'package
-  (setopt package-enable-at-startup nil))
-#+end_src

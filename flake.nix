@@ -2,7 +2,7 @@
   description = "My Nix infrastructure at home";
 
   inputs = {
-    nixpkgs.url = "github:/nixos/nixpkgs/master";
+    nixpkgs.url = "github:/nixos/nixpkgs/nixpkgs-unstable";
     nixpkgs-master.url = "github:NixOS/nixpkgs/master";
     nixpkgs-unstable.url = "github:/nixos/nixpkgs/nixpkgs-unstable";
 

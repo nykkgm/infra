@@ -7,6 +7,7 @@
           clojure
           cljfmt
           leiningen
+          clojure-lsp
         ];
       };
     homeManager.dev = {
