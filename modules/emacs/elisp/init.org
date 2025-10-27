@@ -176,14 +176,6 @@
   :ensure t)
 #+end_src
 * Editing
-** paredit
-#+begin_src emacs-lisp :tangle yes
-(use-package paredit
-  :ensure t
-  :hook (emacs-lisp-mode clojure-mode)
-  :config
-  (add-hook 'paredit-mode-hook #'paredit-define-keys))
-#+end_src
 ** Meow
 #+begin_src emacs-lisp :tangle yes
 (use-package meow
@@ -249,7 +241,7 @@
      '("2" . meow-expand-2)
      '("1" . meow-expand-1)
      ;;  movements can be done with negative argument
-     '("-" . negative-argument)    
+     '("-" . negative-argument)
      
      ;; manipulate selection area
      '(";" . meow-reverse)		    ; reverse
@@ -301,14 +293,14 @@
      '("u" . meow-undo)			; undo
      '("U" . meow-undo-in-selection)	; undo in current selection
 
-     '("x" . paredit-forward-delete)
+     '("x" . puni-forward-delete-char)
      '("y" . meow-save) 		; copy
      '("Y" . meow-sync-grab)		; sync the 2nd selection to current region
      '("z" . meow-pop-selection)	; pop one selection
      '("'" . repeat)
      '("/" . meow-visit)		; search and select
 
-     '("<backspace>" . paredit-backward-delete)
+     '("<backspace>" . puni-backward-delete-char)
      '("<escape>" . meow-cancel-selection)
 
      ;; other commands
@@ -317,14 +309,14 @@
      '(", e m" . pp-macroexpand-last-sexp)
      '(", x" . execute-extended-command)
 
-     ;; paredit
-     '(", a (" . paredit-wrap-round)
-     '(", a [" . paredit-wrap-square)
-     '(", a {" . paredit-wrap-curly)
-     '(", a <" . paredit-wrap-angled)
-     '(", a d" . paredit-splice-sexp)
-     '(", s l" . paredit-forward-slurp-sexp)
-     '(", b a" . paredit-forward-barf-sexp)
+     ;; puni
+     '(", a (" . puni-wrap-round)
+     '(", a [" . puni-wrap-square)
+     '(", a {" . puni-wrap-curly)
+     '(", a <" . puni-wrap-angled)
+     '(", a d" . puni-splice)
+     '(", s l" . puni-slurp-forward)
+     '(", b a" . puni-barf-forward)
 
      ;; buffer
      '(", b d" . kill-this-buffer)
@@ -698,7 +690,7 @@
 #+end_src
 * Coding
 ** Checker
-#+begin_src emacs-lisp :tangle yes
+#+begin_src emacs-lisp :tangle no
 (use-package flycheck
   :ensure t
   :config
@@ -817,7 +809,7 @@ My files:
 				 "* %?\nEntered on %U\n %i"))))
 #+end_src
 *** org-popup-posframe
-#+begin_src emacs-lisp :tangle yes
+#+begin_src emacs-lisp :tangle no
 ;; (use-package org-popup-posframe
 ;;   :ensure t
 ;;   :after posframe
@@ -852,7 +844,7 @@ My files:
 (use-package nov
   ;; "Major mode for reading EPUBs in Emacs"
   :ensure t
-  :mode "\\.epub\\'")
+  :mode ("\\.epub\\'" . nov-mode)
 
 ;; (use-package nov-xwidget
 ;;   :demand t
