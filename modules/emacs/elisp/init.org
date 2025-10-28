@@ -18,7 +18,7 @@
 #+begin_src emacs-lisp :tangle yes
   (defconst my/saved-file-name-handler-alist file-name-handler-alist)
   (setq file-name-handler-alist nil)
- #+end_src
+#+end_src
 ** Do not show some confusing warnings when installing packages
 #+begin_src emacs-lisp :tangle yes
   (add-to-list 'display-buffer-alist
@@ -844,7 +844,7 @@ My files:
 (use-package nov
   ;; "Major mode for reading EPUBs in Emacs"
   :ensure t
-  :mode ("\\.epub\\'" . nov-mode)
+  :mode ("\\.epub\\'" . nov-mode))
 
 ;; (use-package nov-xwidget
 ;;   :demand t
